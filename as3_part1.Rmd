@@ -1,0 +1,1574 @@
+---
+title: "as3"
+author: "shobhan sarkar"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+# Load necessary libraries
+library(stats)
+install.packages('factoextra')
+library(factoextra)
+
+
+# 1c. Extract eigenvalues and variance explained
+df = read.csv("C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\dfa3_prac.csv")
+
+
+
+```
+
+
+```{r}
+# Assuming your data is in a dataframe called 'df'
+# First, ensure all variables are numeric and scale them (PCA requires standardized data)
+df_numeric <- df[, sapply(df, is.numeric)]
+df_scaled <- scale(df_numeric)  # Standardize the data (mean=0, sd=1)
+
+# Perform PCA
+pca_result <- prcomp(df_scaled, center = TRUE, scale. = TRUE)
+
+```
+
+
+
+```{r}
+eigenvalues <- pca_result$sdev^2  # Calculate eigenvalues from standard deviations
+variance_explained <- eigenvalues / sum(eigenvalues) * 100  # Percentage of variance
+cumulative_variance <- cumsum(variance_explained)  # Cumulative percentage
+
+```
+
+
+```{r}
+# Create the table requested in 1c
+pca_summary <- data.frame(
+  Component = paste0("PC", 1:length(eigenvalues)),
+  Eigenvalue = eigenvalues,
+  Variance_Explained = variance_explained,
+  Cumulative_Variance = cumulative_variance
+)
+
+# Print the table
+print(pca_summary)
+```
+
+
+```{r}
+# Optional: Visualize the variance explained
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "scree_plot.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+fviz_eig(pca_result, addlabels = TRUE, ylim = c(0, 50)) + 
+  labs(title = "Scree Plot: Variance Explained by Principal Components",
+       x = "Principal Components", y = "Percentage of Variance Explained") +
+  theme_minimal()
+
+dev.off()
+
+```
+
+
+```{r}
+######## ------------------------ Part 1d ------------------------ ##########
+```
+
+
+```{r}
+library(psych)
+install.packages('nFactors')
+library(nFactors)
+library(FactoMineR)
+library(factoextra)
+```
+
+```{r}
+### Method 1: Kaiser's Criterion (Eigenvalue > 1) ###
+kaiser_components <- sum(pca_result$sdev^2 > 1)
+cat("Kaiser's Criterion (Eigenvalue > 1) suggests retaining:", kaiser_components, "components\n")
+
+```
+
+```{r}
+### Method 2: Scree Plot (Elbow Method) ###
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "scree_plot_with_Kaiser.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+fviz_eig(pca_result, addlabels = TRUE, ncp = length(pca_result$sdev), 
+                       barfill = "#999999", barcolor = "#999999",
+                       linecolor = "red") +
+  geom_hline(yintercept = 1, linetype = 2, color = "blue") +
+  labs(title = "Scree Plot with Kaiser Criterion Line", 
+       x = "Principal Components", y = "Eigenvalues") +
+  theme_minimal()
+dev.off()
+#print(scree_plot)
+```
+
+
+```{r}
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "scree_plot_with_Kaiser.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+
+fviz_eig(pca_result, addlabels = TRUE, ncp = length(pca_result$sdev), 
+         barfill = "#999999", barcolor = "#999999",
+         linecolor = "red") +
+  geom_hline(yintercept = 1, linetype = 2, color = "blue") +
+  labs(
+    title = "Scree Plot with Kaiser Criterion Line", 
+    x = "Principal Components", 
+    y = "Eigenvalues"
+  ) +
+  theme_minimal(base_size = 14) +  # larger base font
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 16, color = "#333333"),
+    axis.title.x = element_text(face = "bold", size = 13),
+    axis.title.y = element_text(face = "bold", size = 13),
+    axis.text = element_text(color = "#333333"),
+    panel.grid.major.y = element_line(color = "gray80", linetype = "dashed")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
+dev.off()
+```
+
+
+```{r}
+cat("Examine the scree plot above to visually identify the 'elbow point'\n")
+```
+
+```{r}
+### Method 3: Parallel Analysis ###
+parallel <- fa.parallel(df_scaled, fa = "pc", n.iter = 100, show.legend = TRUE)
+parallel_components <- parallel$ncomp
+cat("Parallel Analysis suggests retaining:", parallel_components, "components\n")
+
+```
+
+```{r}
+### Method 4: Cumulative Variance (80-90% rule) ###
+cum_var <- cumsum(pca_result$sdev^2 / sum(pca_result$sdev^2))
+cum_var_80 <- which(cum_var >= 0.8)[1]
+cum_var_90 <- which(cum_var >= 0.9)[1]
+cat("Components needed for 80% variance:", cum_var_80, "\n")
+cat("Components needed for 90% variance:", cum_var_90, "\n")
+
+```
+
+
+
+```{r}
+install.packages('vegan')
+library(vegan)
+### Method 5 (Replacement): Broken Stick Model ###
+stick_components <- length(which(bstick(pca_result) < pca_result$sdev^2))
+stick_components
+```
+
+```{r}
+### Summary of Results ###
+retention_results <- data.frame(
+  Method = c("Kaiser's Criterion", "Parallel Analysis", 
+             "80% Variance Rule", "90% Variance Rule",
+             "Broken Stick Model"),
+  Components = c(kaiser_components, parallel_components,
+                 cum_var_80, cum_var_90,
+                 stick_components)
+)
+
+print(retention_results)
+```
+```{r}
+### Final Decision ###
+final_components <- median(retention_results$Components)
+cat("\nBased on these methods, I recommend retaining", final_components, "components\n")
+```
+
+```{r}
+### ------------------ Part 1e ------------------------------------ ###
+```
+
+
+```{r}
+# Load required libraries
+library(factoextra)
+library(ggplot2)
+library(corrplot)
+
+
+
+
+
+
+
+
+### Step 5: Interpretation Guidelines ###
+cat("\nINTERPRETATION GUIDE:
+1. Examine variables with strong loadings (|>0.5|) on each component
+2. Look for common themes among highly loading variables
+3. Consider the direction (positive/negative) of loadings
+4. Name components based on underlying construct they represent
+5. For your dataset, consider:
+   - Socio-economic variables (literacy, income)
+   - Infrastructure (roads, internet)
+   - Health indicators (malnourishment)
+   - Agricultural factors (irrigation, cropped area)\n")
+```
+
+
+
+```{r}
+## Assuming you've already:
+# 1. Performed PCA (pca_result)
+# 2. Determined number of components to retain (n_components)
+
+# Set the number of components you decided to retain
+n_components <- 9  # Replace with your actual number
+
+### Step 1: Extract Component Loadings ###
+loadings <- pca_result$rotation[, 1:n_components]
+
+### Step 2: Create a Loadings Data Frame for Interpretation ###
+loadings_df <- data.frame(
+  Variable = rownames(loadings),
+  loadings,
+  stringsAsFactors = FALSE
+)
+
+# Add max loading column to help interpretation
+loadings_df$Max_Loading <- apply(loadings_df[, -1], 1, function(x) colnames(loadings_df)[which.max(abs(x)) + 1])
+
+print(loadings_df)
+```
+
+```{r}
+### Step 3: Name Components Based on Loadings ###
+# Examine which variables load strongly (>|0.5|) on each component
+for (i in 1:n_components) {
+  cat("\nStrong loadings for PC", i, ":\n")
+  print(loadings_df[abs(loadings_df[, i+1]) > 0.5, c("Variable", paste0("PC", i))])
+  
+  # Suggest a name based on variables with highest loadings
+  top_vars <- loadings_df[order(-abs(loadings_df[, i+1])), "Variable"][1:3]
+  cat("\nSuggested name for PC", i, ": ")
+  if (mean(loadings_df[, i+1][1:3]) > 0) {
+    cat("'", paste(top_vars, collapse = "/"), " Development Index'\n")
+  } else {
+    cat("'", paste(top_vars, collapse = "/"), " Deficiency Index'\n")
+  }
+}
+
+```
+
+```{r}
+### Step 4: Visualize Component Loadings ###
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "1e.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+# Option 1: Corrplot of loadings
+corrplot(loadings, is.corr = FALSE, method = "circle",
+         title = "PCA Component Loadings",
+         mar = c(0,0,1,0))
+
+dev.off()
+```
+
+
+```{r}
+# Option 2: ggplot2 loadings plot
+loadings_long <- tidyr::gather(loadings_df, "Component", "Loading", -Variable, -Max_Loading)
+
+ggplot(loadings_long, aes(x = Variable, y = Loading, fill = Loading)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Component, ncol = 1) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", midpoint = 0) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "PCA Component Loadings",
+       subtitle = "Variables grouped by their strongest component loading")
+
+```
+
+
+```{r}
+# Option 3: Biplot (shows both variables and observations)
+fviz_pca_biplot(pca_result, axes = c(1, 2), 
+                col.var = "contrib", repel = TRUE,
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                title = "PCA Biplot - Components 1 & 2")
+
+```
+
+
+```{r}
+# Load necessary libraries
+library(psych)
+library(GPArotation)
+
+# Assuming you have your PCA results stored
+# First extract the component loadings
+raw_loadings <- pca_result$rotation[,1:n_components]  # Use your decided number of components
+
+# Apply Varimax rotation
+rotated_results <- varimax(raw_loadings)
+rotated_loadings <- rotated_results$loadings
+
+# Print rotated loadings
+print(rotated_loadings)
+
+# Compare with original loadings
+comparison <- data.frame(
+  Variable = rownames(raw_loadings),
+  Original_PC1 = raw_loadings[,1],
+  Rotated_PC1 = rotated_loadings[,1],
+  Original_PC2 = raw_loadings[,2],
+  Rotated_PC2 = rotated_loadings[,2]
+)
+
+print(comparison)
+```
+
+```{r}
+library(ggplot2)
+
+# Prepare rotated loadings data
+rotated_df <- as.data.frame(rotated_loadings[,1:4])  # First 4 components
+rotated_df$Variable <- rownames(rotated_df)
+
+# Create a heatmap of significant loadings (>|0.4|)
+ggplot(rotated_df, aes(x = Variable, y = "Loading", fill = PC1)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                      midpoint = 0, limits = c(-1, 1)) +
+  facet_wrap(~ "PC1: Education & Basic Infrastructure", ncol = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        axis.title.y = element_blank()) +
+  labs(title = "Rotated Component Loadings (Varimax)",
+       subtitle = "Showing absolute loadings > 0.4 for interpretation")
+```
+
+
+```{r}
+# Load required library
+library(corrplot)
+
+# Extract rotated loadings (assuming you have the rotated_results object)
+rotated_loadings <- rotated_results$loadings
+
+# Set up color gradient
+col <- colorRampPalette(c("blue", "white", "red"))(200)
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "1f.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+# Create correlation plot with important features only
+corrplot(rotated_loadings, is.corr = FALSE,
+         method = "color",         # Color squares
+         col = col,                # Blue-white-red color scale
+         tl.col = "black",         # Text label color
+         tl.srt = 45,              # Text label rotation
+         addCoef.col = "black",    # Coefficient colors
+         number.cex = 0.7,         # Coefficient text size
+         
+         # Only show loadings above threshold for clarity
+         tl.cex = 0.8,            # Variable name text size
+         cl.lim = c(-1, 1),       # Color limits
+         mar = c(1,1,1,1),        # Margins
+         title = "Rotated PCA Component Loadings (Varimax)",
+         diag = FALSE)             # Don't show diagonal
+
+# Add threshold indicators (only show loadings > |0.4|)
+corrplot(rotated_loadings, 
+         is.corr = FALSE,
+         method = "circle",
+         col = col,
+         add = TRUE,               # Add to previous plot
+         diag = FALSE,
+         cl.pos = "n",            # No color legend
+         tl.pos = "n",             # No text labels
+         p.mat = abs(rotated_loadings), 
+         insig = "blank",          # Blank out ins(ignificant
+         sig.level = 0.4)          # Threshold = 0.4
+dev.off()
+```
+
+
+
+```{r}
+########--------------------------------- Factor Analysis ------------------------#########
+```
+
+
+
+```{r}
+library(psych)
+library(nFactors)
+
+# Parallel Analysis
+fa.parallel(df_scaled, fa = "fa", n.iter = 100)
+
+# Kaiser's criterion (eigenvalues > 1)
+eigen(cor(df_scaled))$values
+
+# Velicer's MAP test
+vss(df_scaled, rotate = "none")
+
+# Scree plot
+scree(cor(df_scaled))
+```
+```{r}
+fa_result <- fa(df_scaled, nfactors = 3, rotate = "varimax", fm = "ml")
+
+# Tabular results
+#knitr::kable(fa_result$loadings, digits = 2, caption = "Rotated Factor Loadings")
+
+# Structure matrix
+print(fa_result$Structure)
+```
+```{r}
+# Visualizations
+fa.diagram(fa_result)
+
+# Heatmap of loadings
+library(ggplot2)
+loadings <- as.data.frame(fa_result$loadings[,1:3])
+loadings$Variable <- rownames(loadings)
+
+ggplot(loadings, aes(x = Variable, y = MR1, fill = MR1)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Suggested names based on typical loadings:
+# Factor 1 (MR1): "Financial Inclusion" (PMJDY, Mudra loans)
+# Factor 2 (MR2): "Digital Infrastructure" (Mobile, Internet)
+# Factor 3 (MR3): "Agricultural Development" (Irrigation, Cropped area)
+```
+```{r}
+library(ggplot2)
+library(tidyr)
+
+# First extract the loadings correctly
+loadings <- as.data.frame(fa_result$loadings[])
+loadings$Variable <- rownames(loadings)
+
+# Check the actual column names in your results
+print(colnames(loadings))
+
+# Typical column names might be:
+# ML1, ML2, ML3 (for Maximum Likelihood)
+# PA1, PA2, PA3 (for Principal Axis)
+# Or just V1, V2, V3
+
+# Rename columns for plotting (ADJUST THESE TO MATCH YOUR OUTPUT)
+colnames(loadings)[1:3] <- c("Factor1", "Factor2", "Factor3") 
+
+# Reshape data for ggplot
+loadings_long <- pivot_longer(loadings, 
+                            cols = starts_with("Factor"),
+                            names_to = "Factor",
+                            values_to = "Loading")
+
+# Create the plot
+ggplot(loadings_long, aes(x = Variable, y = Loading, fill = Loading)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                      midpoint = 0, limits = c(-1, 1)) +
+  facet_wrap(~ Factor, ncol = 1) +
+  labs(title = "Factor Loadings",
+       subtitle = "Orthogonal Rotation (Varimax)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        legend.position = "right")
+```
+
+```{r}
+library(ggplot2)
+
+# Assuming your loadings are stored in a matrix called 'loadings'
+# Here's how to create a proper visualization:
+
+# 1. Convert to tidy data format
+loadings_long <- reshape2::melt(loadings)
+colnames(loadings_long) <- c("Variable", "Factor", "Loading")
+
+# 2. Create a heatmap-style plot
+ggplot(loadings_long, aes(x = Factor, y = Variable, fill = Loading)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                      midpoint = 0, limit = c(-1, 1)) +
+  geom_text(aes(label = round(Loading, 2)), color = "black", size = 3) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.title = element_blank()) +
+  labs(title = "Factor Loadings (Varimax Rotation)",
+       subtitle = "Only loadings > |0.4| are typically considered meaningful")
+```
+
+
+```{r}
+# Check if factors are correlated
+phi_matrix <- fa_result$Phi
+print(phi_matrix)
+# Oblique rotation makes sense if:
+# 1. Factors are expected to correlate theoretically
+# 2. Phi matrix shows correlations > 0.3
+# 3. Your domain knowledge suggests interrelated constructs
+```
+
+```{r}
+# Re-run with oblique rotation to check factor correlations
+fa_oblique <- fa(df_scaled, nfactors = 3, rotate = "promax", fm = "ml")
+fa_oblique
+# 1. Check factor correlations
+if(!is.null(fa_oblique$Phi)) {
+  print("Factor correlations:")
+  print(round(fa_oblique$Phi, 2))
+  
+  # Justification for oblique rotation
+  if(any(abs(fa_oblique$Phi) > 0.3)) {
+    cat("\nOblique rotation is justified because:\n")
+    cat("- Factors show substantial correlations (max", 
+        round(max(abs(fa_oblique$Phi)), ")\n")
+    cat("- Theoretical constructs are likely interrelated\n")
+  } else {
+    cat("\nOrthogonal rotation remains appropriate because:\n")
+    cat("- Factors are nearly uncorrelated (max correlation =", 
+        round(max(abs(fa_oblique$Phi)), 2), ")\n")
+  }
+} else {
+  # Manual check if Phi is missing
+  cat("\nChecking interfactor correlations manually:\n")
+  pattern_cor <- cor(fa_oblique$scores)
+  print(round(pattern_cor, 2))
+}
+```
+```{r}
+library(psych)
+
+# First ensure your data is properly prepared
+#df_scaled <- scale(df)  # Standardize the data
+#df_scaled <- na.omit(df_scaled)  # Remove missing values
+
+# Perform factor analysis with proper error handling
+fa_result <- tryCatch({
+  fa(df_scaled, 
+     nfactors = 3,       # Use your determined number of factors
+     rotate = "varimax", # Orthogonal rotation
+     fm = "ml")          # Maximum likelihood estimation
+}, error = function(e) {
+  message("Error in factor analysis: ", e$message)
+  # Try with principal axis factoring if ML fails
+  message("Trying principal axis factoring instead...")
+  fa(df_scaled, nfactors = 3, rotate = "varimax", fm = "pa")
+})
+
+# Check if analysis succeeded
+if(inherits(fa_result, "simpleError")) {
+  stop("Factor analysis failed with both methods")
+}
+
+# Properly format the loadings table
+loadings_table <- as.data.frame(unclass(fa_result$loadings))
+rownames(loadings_table) <- colnames(df_scaled)
+
+# Display the results
+knitr::kable(loadings_table, digits = 2, 
+             caption = "Rotated Factor Loadings (Varimax)")
+```
+
+```{r}
+comparison <- data.frame(
+  Variable = rownames(fa_result$loadings),
+  Orthogonal_PC1 = fa_result$loadings[,1],
+  Oblique_PC1 = fa_oblique$loadings[,1],
+  Orthogonal_PC2 = fa_result$loadings[,2],
+  Oblique_PC2 = fa_oblique$loadings[,2]
+)
+```
+
+```{r}
+print(comparison[,1:5])
+```
+```{r}
+fa_result
+```
+
+
+```{r}
+# Suggested naming based on your results:
+colnames(fa_oblique$loadings) <- c("Digital_Infrastructure", 
+                                 "Financial_Inclusion",
+                                 "Environmental_Literacy")
+```
+
+
+```{r}
+install.packages('qgraph')
+library(qgraph)
+qgraph(fa_oblique$Phi, 
+       layout = "spring",
+       edge.labels = TRUE,
+       title = "Factor Correlation Network")
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+comp_long <- comparison %>%
+  pivot_longer(cols = -Variable, 
+               names_to = c("Rotation", "Factor"),
+               names_pattern = "(.*)_(PC\\d)")
+
+ggplot(comp_long, aes(x = Rotation, y = value, fill = Rotation)) +
+  geom_boxplot() +
+  facet_wrap(~Factor) +
+  labs(title = "Comparison of Loading Magnitudes",
+       y = "Loading Value") +
+  theme_minimal()
+
+# Structure matrix for oblique solution
+print("Oblique solution structure matrix:")
+print(round(fa_oblique$Structure, 2))
+```
+
+
+
+```{r}
+# Perform both rotations
+fa_ortho <- fa(df_scaled, nfactors = 3, rotate = "varimax", fm = "ml")  # Orthogonal
+fa_oblique <- fa(df_scaled, nfactors = 3, rotate = "promax", fm = "ml") # Oblique
+
+# 1. Tabular Comparison (All 3 factors)
+comparison <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  Ortho_F1 = fa_ortho$loadings[,1],
+  Oblique_F1 = fa_oblique$loadings[,1],
+  Ortho_F2 = fa_ortho$loadings[,2],
+  Oblique_F2 = fa_oblique$loadings[,2],
+  Ortho_F3 = fa_ortho$loadings[,3],
+  Oblique_F3 = fa_oblique$loadings[,3]
+)
+
+# Print clean table (showing only significant loadings > 0.4)
+comparison_clean <- apply(comparison, 2, function(x) ifelse(abs(x) < 0.4, "", round(x, 2)))
+knitr::kable(comparison_clean, caption = "Orthogonal vs Oblique Loadings (All Factors)")
+
+# 2. Visualization (All 3 factors)
+library(ggplot2)
+library(tidyr)
+
+# Prepare data
+comp_long <- comparison %>%
+  pivot_longer(cols = -Variable, 
+               names_to = c("Rotation", "Factor"),
+               names_pattern = "(.*)_(F\\d)")
+
+# Plot all factors
+ggplot(comp_long, aes(x = Variable, y = value, fill = Rotation)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~Factor, ncol = 1, scales = "free_y") +
+  scale_fill_manual(values = c("Ortho_F1" = "blue", "Oblique_F1" = "red")) +
+  labs(title = "Rotation Method Comparison",
+       subtitle = "Blue: Varimax (Orthogonal) | Red: Promax (Oblique)",
+       y = "Loading Value") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# 3. Factor Correlation Matrix (Oblique only)
+if(!is.null(fa_oblique$Phi)) {
+  cat("\nFactor Correlations in Oblique Solution:\n")
+  print(round(fa_oblique$Phi, 2))
+}
+```
+
+```{r}
+library(psych)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+# 1. Ensure data is properly formatted
+df_scaled <- scale(as.data.frame(lapply(df, as.numeric))) # Force numeric conversion
+df_scaled <- na.omit(df_scaled) # Remove NAs
+
+# 2. Run factor analyses with error handling
+fa_ortho <- fa(df_scaled, nfactors=3, rotate="varimax", fm="ml")
+fa_oblique <- fa(df_scaled, nfactors=3, rotate="promax", fm="ml")
+
+# 3. SAFE comparison table
+comparison <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  Ortho_F1 = as.numeric(fa_ortho$loadings[,1]),
+  Oblique_F1 = as.numeric(fa_oblique$loadings[,1]),
+  Ortho_F2 = as.numeric(fa_ortho$loadings[,2]),
+  Oblique_F2 = as.numeric(fa_oblique$loadings[,2]),
+  Ortho_F3 = as.numeric(fa_oblique$loadings[,3]),
+  Oblique_F3 = as.numeric(fa_oblique$loadings[,3])
+)
+
+# 4. Filter numeric columns for visualization
+numeric_cols <- sapply(comparison, is.numeric)
+comp_long <- comparison %>%
+  pivot_longer(cols = which(numeric_cols), 
+               names_to = c("Rotation", "Factor"),
+               names_pattern = "(.*)_(F\\d)") %>%
+  mutate(value = as.numeric(value))
+
+# 5. Create visualization
+ggplot(comp_long, aes(x=Variable, y=value, fill=Rotation)) +
+  geom_col(position="dodge") +
+  facet_wrap(~Factor, ncol=1) +
+  scale_fill_brewer(palette="Set1") +
+  labs(title="Orthogonal vs Oblique Rotation Comparison",
+       subtitle="Showing all three factors",
+       y="Loading Value") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+
+# 6. Tabular output with significance markers
+comparison$Sig_F1 <- ifelse(abs(comparison$Ortho_F1 - comparison$Oblique_F1) > 0.2, "*", "")
+comparison$Sig_F2 <- ifelse(abs(comparison$Ortho_F2 - comparison$Oblique_F2) > 0.2, "*", "")
+comparison$Sig_F3 <- ifelse(abs(comparison$Ortho_F3 - comparison$Oblique_F3) > 0.2, "*", "")
+
+knitr::kable(comparison, digits=2, 
+             caption="Complete Factor Loading Comparison (Stars indicate >0.2 difference)")
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+
+# 1. SAFE data preparation
+comparison <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  Ortho_F1 = as.numeric(fa_ortho$loadings[,1]),
+  Oblique_F1 = as.numeric(fa_oblique$loadings[,1]),
+  Ortho_F2 = as.numeric(fa_ortho$loadings[,2]),
+  Oblique_F2 = as.numeric(fa_oblique$loadings[,2]),
+  Ortho_F3 = as.numeric(fa_ortho$loadings[,3]),
+  Oblique_F3 = as.numeric(fa_oblique$loadings[,3]),
+  stringsAsFactors = FALSE
+)
+
+# 2. ALTERNATIVE RESHAPING (more reliable)
+comp_long <- comparison %>%
+  tidyr::pivot_longer(
+    cols = c(-Variable),  # All columns except 'Variable'
+    names_to = "Rotation_Factor",
+    values_to = "Loading"
+  ) %>%
+  dplyr::mutate(
+    Rotation = ifelse(grepl("Ortho", Rotation_Factor), "Varimax", "Promax"),
+    Factor = gsub(".*_(F\\d)", "\\1", Rotation_Factor),
+    Loading = as.numeric(Loading)
+  ) %>%
+  dplyr::select(-Rotation_Factor)
+
+# 3. Verify structure
+str(comp_long)
+
+# 4. Visualization
+ggplot(comp_long, aes(x = Variable, y = Loading, fill = Rotation)) +
+  geom_col(position = position_dodge(0.9)) +
+  facet_wrap(~Factor, ncol = 1) +
+  labs(title = "Rotation Method Comparison") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+```{r}
+# Create comparison table with significance markers
+comparison_table <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  
+  # Factor 1
+  Ortho_F1 = round(fa_ortho$loadings[,1], 2),
+  Oblique_F1 = round(fa_oblique$loadings[,1], 2),
+  Diff_F1 = round(abs(fa_ortho$loadings[,1] - fa_oblique$loadings[,1]), 2),
+  
+  # Factor 2
+  Ortho_F2 = round(fa_ortho$loadings[,2], 2),
+  Oblique_F2 = round(fa_oblique$loadings[,2], 2),
+  Diff_F2 = round(abs(fa_ortho$loadings[,2] - fa_oblique$loadings[,2]), 2),
+  
+  # Factor 3
+  Ortho_F3 = round(fa_ortho$loadings[,3], 2),
+  Oblique_F3 = round(fa_oblique$loadings[,3], 2),
+  Diff_F3 = round(abs(fa_ortho$loadings[,3] - fa_oblique$loadings[,3]), 2)
+)
+
+# Add significance markers (using Unicode symbols)
+comparison_table <- comparison_table %>%
+  mutate(
+    F1_Sig = ifelse(Diff_F1 > 0.2, "◉", ""),
+    F2_Sig = ifelse(Diff_F2 > 0.2, "◉", ""),
+    F3_Sig = ifelse(Diff_F3 > 0.2, "◉", "")
+  )
+
+# Print professional table
+knitr::kable(comparison_table,
+             align = c('l', rep('c', 9)),
+             caption = "Table 1. Comparison of Orthogonal (Varimax) and Oblique (Promax) Rotations",
+             col.names = c("Variable", 
+                          "Varimax", "Promax", "Δ", 
+                          "Varimax", "Promax", "Δ",
+                          "Varimax", "Promax", "Δ",
+                          "Sig1", "Sig2", "Sig3")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  kableExtra::add_header_above(c(" " = 1, 
+                               "Factor 1" = 3, 
+                               "Factor 2" = 3, 
+                               "Factor 3" = 3,
+                               "Significance" = 3)) %>%
+  kableExtra::footnote(
+    general = "◉ indicates substantial difference (>0.2) between rotations",
+    threeparttable = TRUE)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+# 1. Create the comparison table (simpler version)
+comp_table <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  
+  # Factor 1
+  Varimax_F1 = round(fa_ortho$loadings[,1], 2),
+  Promax_F1 = round(fa_oblique$loadings[,1], 2),
+  Delta_F1 = round(abs(fa_ortho$loadings[,1] - fa_oblique$loadings[,1]), 2),
+  
+  # Factor 2
+  Varimax_F2 = round(fa_ortho$loadings[,2], 2),
+  Promax_F2 = round(fa_oblique$loadings[,2], 2),
+  Delta_F2 = round(abs(fa_ortho$loadings[,2] - fa_oblique$loadings[,2]), 2),
+  
+  # Factor 3
+  Varimax_F3 = round(fa_ortho$loadings[,3], 2),
+  Promax_F3 = round(fa_oblique$loadings[,3], 2),
+  Delta_F3 = round(abs(fa_ortho$loadings[,3] - fa_oblique$loadings[,3]), 2)
+)
+
+# 2. Create the table with PROPER header alignment
+kable(comp_table, 
+      align = c('l', rep('c', ncol(comp_table)-1)),
+      caption = "Comparison of Rotations") %>%
+  kable_styling("striped", full_width = FALSE) %>%
+  add_header_above(c(" " = 1, 
+                   "Factor 1" = 3, 
+                   "Factor 2" = 3, 
+                   "Factor 3" = 3)) %>%
+  footnote(general = "Delta (Δ) = Absolute difference between rotations")
+```
+
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+# 1. Create the comparison table
+comp_table <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  
+  # Factor 1
+  Varimax_F1 = round(fa_ortho$loadings[,1], 2),
+  Promax_F1 = round(fa_oblique$loadings[,1], 2),
+  Delta_F1 = round(abs(fa_ortho$loadings[,1] - fa_oblique$loadings[,1]), 2),
+  
+  # Factor 2
+  Varimax_F2 = round(fa_ortho$loadings[,2], 2),
+  Promax_F2 = round(fa_oblique$loadings[,2], 2),
+  Delta_F2 = round(abs(fa_ortho$loadings[,2] - fa_oblique$loadings[,2]), 2),
+  
+  # Factor 3
+  Varimax_F3 = round(fa_ortho$loadings[,3], 2),
+  Promax_F3 = round(fa_oblique$loadings[,3], 2),
+  Delta_F3 = round(abs(fa_ortho$loadings[,3] - fa_oblique$loadings[,3]), 2),
+  
+  # Add significance marker column
+  Sig = ifelse(
+    abs(fa_ortho$loadings[,1] - fa_oblique$loadings[,1]) > 0.2 |
+    abs(fa_ortho$loadings[,2] - fa_oblique$loadings[,2]) > 0.2 |
+    abs(fa_ortho$loadings[,3] - fa_oblique$loadings[,3]) > 0.2,
+    "◉", "")
+)
+
+# 2. VERIFY column count
+n_columns <- ncol(comp_table)
+cat("Table has", n_columns, "columns\n") # Should be 10 (1+3*3) or 11 with Sig
+
+# 3. Create the table with DYNAMIC header
+kable(comp_table, 
+      align = c('l', rep('c', n_columns-1)),
+      caption = "Rotation Method Comparison") %>%
+  kable_styling("striped", full_width = FALSE) %>%
+  add_header_above(c(" " = 1, 
+                     "Factor 1" = 3, 
+                     "Factor 2" = 3, 
+                     "Factor 3" = 3,
+                     "Significant" = 1)) %>%  # Matches n_columns
+  footnote(general = "◉ indicates >0.2 difference between rotations")
+```
+
+```{r}
+# Simple version that always works
+kable(comp_table, 
+      caption = "Rotation Method Comparison",
+      col.names = c("Variable",
+                   "Varimax F1", "Promax F1", "Δ F1",
+                   "Varimax F2", "Promax F2", "Δ F2",
+                   "Varimax F3", "Promax F3", "Δ F3")) %>%
+  kable_styling("striped") %>%
+  pack_rows("Factor 1", 1, nrow(comp_table)) %>%
+  pack_rows("Factor 2", 1, nrow(comp_table)) %>%
+  pack_rows("Factor 3", 1, nrow(comp_table))
+```
+
+```{r}
+# Run this first to see EXACTLY what you're working with
+comp_table <- data.frame(
+  Variable = rownames(fa_ortho$loadings),
+  Varimax_F1 = round(fa_ortho$loadings[,1], 2),
+  Promax_F1 = round(fa_oblique$loadings[,1], 2),
+  Delta_F1 = round(abs(fa_ortho$loadings[,1] - fa_oblique$loadings[,1]), 2),
+  Varimax_F2 = round(fa_ortho$loadings[,2], 2),
+  Promax_F2 = round(fa_oblique$loadings[,2], 2),
+  Delta_F2 = round(abs(fa_ortho$loadings[,2] - fa_oblique$loadings[,2]), 2),
+  Varimax_F3 = round(fa_ortho$loadings[,3], 2),
+  Promax_F3 = round(fa_oblique$loadings[,3], 2),
+  Delta_F3 = round(abs(fa_ortho$loadings[,3] - fa_oblique$loadings[,3]), 2)
+)
+
+# Check the ACTUAL number of columns
+cat("ACTUAL number of columns:", ncol(comp_table), "\n")
+print(colnames(comp_table))
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+# Create the table with AUTOMATIC header adjustment
+table_output <- comp_table %>%
+  kable(align = c('l', rep('c', ncol(comp_table)-1)),
+        caption = "Rotation Method Comparison") %>%
+  kable_styling("striped", full_width = FALSE)
+
+# Add headers based on ACTUAL column count
+if(ncol(comp_table) == 10) {
+  table_output <- table_output %>%
+    add_header_above(c(" " = 1, "Factor 1" = 3, "Factor 2" = 3, "Factor 3" = 3))
+} else if(ncol(comp_table) == 11) {
+  table_output <- table_output %>%
+    add_header_above(c(" " = 1, "Factor 1" = 3, "Factor 2" = 3, "Factor 3" = 3, " " = 1))
+} else if(ncol(comp_table) == 12) {
+  table_output <- table_output %>%
+    add_header_above(c(" " = 1, "Factor 1" = 3, "Factor 2" = 3, "Factor 3" = 3, " " = 2))
+}
+
+# Add footnote
+table_output <- table_output %>%
+  footnote(general = "Delta values show absolute differences between rotation methods")
+
+# Print the final table
+table_output
+```
+
+```{r}
+cat("ROTATION METHOD COMPARISON\n")
+cat("=========================\n\n")
+
+for(i in 1:nrow(fa_ortho$loadings)) {
+  var_name <- rownames(fa_ortho$loadings)[i]
+  
+  cat(paste0("\n", var_name, ":\n"))
+  cat("  Factor 1: Varimax=", round(fa_ortho$loadings[i,1], 2), 
+      " | Promax=", round(fa_oblique$loadings[i,1], 2), 
+      " (Δ=", round(abs(fa_ortho$loadings[i,1]-fa_oblique$loadings[i,1]), 2), ")\n")
+  
+  cat("  Factor 2: Varimax=", round(fa_ortho$loadings[i,2], 2), 
+      " | Promax=", round(fa_oblique$loadings[i,2], 2), 
+      " (Δ=", round(abs(fa_ortho$loadings[i,2]-fa_oblique$loadings[i,2]), 2), ")\n")
+  
+  cat("  Factor 3: Varimax=", round(fa_ortho$loadings[i,3], 2), 
+      " | Promax=", round(fa_oblique$loadings[i,3], 2), 
+      " (Δ=", round(abs(fa_ortho$loadings[i,3]-fa_oblique$loadings[i,3]), 2), ")\n")
+  
+  max_diff <- max(abs(fa_ortho$loadings[i,] - fa_oblique$loadings[i,]))
+  if(max_diff > 0.2) cat("  * Notable difference\n")
+}
+```
+
+```{r}
+cat("| Variable | F1 Varimax | F1 Promax | Δ F1 | F2 Varimax | F2 Promax | Δ F2 | F3 Varimax | F3 Promax | Δ F3 |\n")
+cat("|----------|-----------|-----------|------|-----------|-----------|------|-----------|-----------|------|\n")
+
+for(i in 1:nrow(fa_ortho$loadings)) {
+  var_name <- rownames(fa_ortho$loadings)[i]
+  row <- sprintf(
+    "| %s | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |",
+    var_name,
+    fa_ortho$loadings[i,1], fa_oblique$loadings[i,1], abs(fa_ortho$loadings[i,1]-fa_oblique$loadings[i,1]),
+    fa_ortho$loadings[i,2], fa_oblique$loadings[i,2], abs(fa_ortho$loadings[i,2]-fa_oblique$loadings[i,2]),
+    fa_ortho$loadings[i,3], fa_oblique$loadings[i,3], abs(fa_ortho$loadings[i,3]-fa_oblique$loadings[i,3])
+  )
+  cat(row, "\n")
+}
+```
+
+```{r}
+for(i in 1:nrow(fa_ortho$loadings)) {
+  var_name <- abbreviate(rownames(fa_ortho$loadings)[i], 12)
+  
+  # Factor 1
+  f1_diff <- abs(fa_ortho$loadings[i,1] - fa_oblique$loadings[i,1])
+  f1_bar <- paste0(rep("=", round(fa_ortho$loadings[i,1]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,1]*10)), ">")
+  
+  # Factor 2
+  f2_diff <- abs(fa_ortho$loadings[i,2] - fa_oblique$loadings[i,2])
+  f2_bar <- paste0(rep("=", round(fa_ortho$loadings[i,2]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,2]*10)), ">")
+  
+  # Factor 3
+  f3_diff <- abs(fa_ortho$loadings[i,3] - fa_oblique$loadings[i,3])
+  f3_bar <- paste0(rep("=", round(fa_ortho$loadings[i,3]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,3]*10)), ">")
+  
+  cat(sprintf("\n%s\nF1: %s (Δ=%.2f)\nF2: %s (Δ=%.2f)\nF3: %s (Δ=%.2f)\n",
+              var_name, f1_bar, f1_diff, f2_bar, f2_diff, f3_bar, f3_diff))
+}
+```
+```{r}
+for(i in 1:nrow(fa_ortho$loadings)) {
+  var_name <- abbreviate(rownames(fa_ortho$loadings)[i], 12)
+  
+  # Factor 1
+  f1_diff <- abs(fa_ortho$loadings[i,1] - fa_oblique$loadings[i,1])
+  f1_bar <- paste0(rep("=", round(fa_ortho$loadings[i,1]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,1]*10)), ">")
+  
+  # Factor 2
+  f2_diff <- abs(fa_ortho$loadings[i,2] - fa_oblique$loadings[i,2])
+  f2_bar <- paste0(rep("=", round(fa_ortho$loadings[i,2]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,2]*10)), ">")
+  
+  # Factor 3
+  f3_diff <- abs(fa_ortho$loadings[i,3] - fa_oblique$loadings[i,3])
+  f3_bar <- paste0(rep("=", round(fa_ortho$loadings[i,3]*10)), "> ", 
+                  rep("=", round(fa_oblique$loadings[i,3]*10)), ">")
+  
+  cat(sprintf("\n%s\nF1: %s (Δ=%.2f)\nF2: %s (Δ=%.2f)\nF3: %s (Δ=%.2f)\n",
+              var_name, f1_bar, f1_diff, f2_bar, f2_diff, f3_bar, f3_diff))
+}
+```
+```{r}
+library(knitr)
+
+# Create comparison table
+comparison <- data.frame(
+  Variable = rownames(pca_result$rotation),
+  
+  # PCA Loadings
+  PCA_PC1 = round(pca_result$rotation[,1], 2),
+  PCA_PC2 = round(pca_result$rotation[,2], 2),
+  PCA_PC3 = round(pca_result$rotation[,3], 2),
+  
+  # FA Loadings
+  FA_F1 = round(fa_ortho$loadings[,1], 2),
+  FA_F2 = round(fa_ortho$loadings[,2], 2),
+  FA_F3 = round(fa_ortho$loadings[,3], 2),
+  
+  # Differences
+  Diff_PC1_F1 = round(abs(pca_result$rotation[,1] - fa_ortho$loadings[,1]), 2),
+  Diff_PC2_F2 = round(abs(pca_result$rotation[,2] - fa_ortho$loadings[,2]), 2),
+  Diff_PC3_F3 = round(abs(pca_result$rotation[,3] - fa_ortho$loadings[,3]), 2)
+)
+
+# Mark significant differences (>0.2)
+comparison$Sig1 <- ifelse(comparison$Diff_PC1_F1 > 0.2, "◉", "")
+comparison$Sig2 <- ifelse(comparison$Diff_PC2_F2 > 0.2, "◉", "")
+comparison$Sig3 <- ifelse(comparison$Diff_PC3_F3 > 0.2, "◉", "")
+
+kable(comparison, caption = "PCA vs. Factor Analysis Loadings Comparison") %>%
+  kable_styling() %>%
+  add_header_above(c(" " = 1, 
+                   "PCA Loadings" = 3, 
+                   "FA Loadings" = 3, 
+                   "Differences" = 3,
+                   "Significant" = 3))
+```
+
+```{r}
+# 1. Minimalist Text Summary
+cat("=== PCA vs FA Key Differences ===\n\n")
+
+# Variance Explained
+cat("Variance Explained:\n")
+cat("- PCA:", round(sum(pca_result$sdev[1:3]^2)/sum(pca_result$sdev^2)*100, 1), "%\n")
+cat("- FA: ", round(sum(fa_ortho$loadings^2)/ncol(df_scaled)*100, 1), "%\n\n")
+
+# Component Comparison
+cat("Top Variables per Dimension:\n")
+cat("PCA PC1:", names(sort(abs(pca_result$rotation[,1]), decreasing=TRUE)[1:3], "\n")
+cat("FA F1:  ", names(sort(abs(fa_ortho$loadings[,1]), decreasing=TRUE)[1:3], "\n\n")
+
+cat("PCA PC2:", names(sort(abs(pca_result$rotation[,2]), decreasing=TRUE)[1:3], "\n")
+cat("FA F2:  ", names(sort(abs(fa_ortho$loadings[,2]), decreasing=TRUE)[1:3], "\n\n")
+
+cat("PCA PC3:", names(sort(abs(pca_result$rotation[,3]), decreasing=TRUE)[1:3], "\n")
+cat("FA F3:  ", names(sort(abs(fa_ortho$loadings[,3]), decreasing=TRUE)[1:3], "\n\n")
+
+# Biggest Differences
+diffs <- abs(pca_result$rotation[,1:3] - fa_ortho$loadings[,1:3])
+cat("Largest Loading Differences:\n")
+cat(paste0(rownames(diffs)[which.max(diffs)], ": Δ=", round(max(diffs), 2), "\n\n")
+
+# 2. Visualization (Keep your existing plot code)
+library(ggplot2)
+library(patchwork)
+
+pca_plot <- ggplot(as.data.frame(pca_result$rotation), aes(PC1, PC2, label=rownames(pca_result$rotation))) +
+  geom_point(color="blue") + ggrepel::geom_text_repel(size=3) +
+  labs(title="PCA Loadings")
+
+fa_plot <- ggplot(as.data.frame(fa_ortho$loadings), aes(ML1, ML2, label=rownames(fa_ortho$loadings))) +
+  geom_point(color="red") + ggrepel::geom_text_repel(size=3) +
+  labs(title="FA Loadings")
+
+pca_plot + fa_plot
+```
+
+```{r}
+install.packages('patchwork')
+library(ggplot2)
+library(patchwork)
+
+# Prepare data
+pca_loadings <- as.data.frame(pca_result$rotation[,1:3])
+fa_loadings <- as.data.frame(fa_ortho$loadings[,1:3])
+
+pca_loadings$Variable <- rownames(pca_loadings)
+fa_loadings$Variable <- rownames(fa_loadings)
+
+# Create plots
+p1 <- ggplot(pca_loadings, aes(x = PC1, y = PC2, label = Variable)) +
+  geom_point(color = "blue") +
+  ggrepel::geom_text_repel() +
+  labs(title = "PCA Loadings (PC1 vs PC2)")
+
+p2 <- ggplot(fa_loadings, aes(x = ML1, y = ML2, label = Variable)) +
+  geom_point(color = "red") +
+  ggrepel::geom_text_repel() +
+  labs(title = "FA Loadings (Factor1 vs Factor2)")
+
+# Combined comparison plot
+p1 + p2 + plot_annotation(title = "PCA vs. Factor Analysis Loading Patterns")
+```
+
+```{r}
+# 1. Text Summary
+cat("=== PCA vs FA Comparison ===\n\n")
+
+# Top Variables for each component/factor
+print_comparison <- function(pca_load, fa_load, n=3) {
+  for(i in 1:3) {
+    pca_top <- names(sort(abs(pca_load[,i]), decreasing=TRUE)[1:n]
+    fa_top <- names(sort(abs(fa_load[,i]), decreasing=TRUE)[1:n]
+    cat(sprintf("Dimension %d:\n", i))
+    cat("  PCA:", paste(pca_top, collapse=", "), "\n")
+    cat("  FA: ", paste(fa_top, collapse=", "), "\n\n")
+  }
+}
+
+print_comparison(pca_result$rotation, fa_ortho$loadings)
+
+# 2. Visualization
+library(ggplot2)
+library(patchwork)
+
+create_loadings_plot <- function(loadings, title, color) {
+  df <- data.frame(
+    Comp1 = loadings[,1],
+    Comp2 = loadings[,2],
+    Variable = rownames(loadings)
+  )
+  
+  ggplot(df, aes(Comp1, Comp2, label=Variable)) +
+    geom_point(color=color, size=3) +
+    ggrepel::geom_text_repel(size=3, max.overlaps=20) +
+    labs(title=title) +
+    theme_minimal()
+}
+
+p1 <- create_loadings_plot(pca_result$rotation, "PCA Loadings", "blue")
+p2 <- create_loadings_plot(fa_ortho$loadings, "FA Loadings", "red")
+
+# Display side-by-side
+p1 + p2
+```
+
+```{r}
+# 1. Text Summary
+cat("=== PCA vs FA Comparison ===\n\n")
+
+# Top Variables for each component/factor
+print_comparison <- function(pca_load, fa_load, n=3) {
+  for(i in 1:3) {
+    pca_top <- names(sort(abs(pca_load[,i]), decreasing=TRUE)[1:n]
+    fa_top <- names(sort(abs(fa_load[,i]), decreasing=TRUE)[1:n]
+    cat(sprintf("Dimension %d:\n", i))
+    cat("  PCA:", paste(pca_top, collapse=", "), "\n")
+    cat("  FA: ", paste(fa_top, collapse=", "), "\n\n")
+  }
+}
+
+print_comparison(pca_result$rotation, fa_ortho$loadings)
+
+# 2. Visualization
+library(ggplot2)
+library(patchwork)
+
+create_loadings_plot <- function(loadings, title, color) {
+  df <- data.frame(
+    Comp1 = loadings[,1],
+    Comp2 = loadings[,2],
+    Variable = rownames(loadings)
+  )
+  
+  ggplot(df, aes(Comp1, Comp2, label=Variable)) +
+    geom_point(color=color, size=3) +
+    ggrepel::geom_text_repel(size=3, max.overlaps=20) +
+    labs(title=title) +
+    theme_minimal()
+}
+
+p1 <- create_loadings_plot(pca_result$rotation, "PCA Loadings", "blue")
+p2 <- create_loadings_plot(fa_ortho$loadings, "FA Loadings", "red")
+
+# Display side-by-side
+p1 + p2
+```
+```{r}
+# 1. Simplified Text Comparison
+cat("=== PCA vs FA Comparison ===\n\n")
+
+# Function to get top variables safely
+get_top_vars <- function(loadings, n=3) {
+  apply(loadings, 2, function(x) {
+    names(head(sort(abs(x), decreasing=TRUE), n))
+  })
+}
+
+# Print comparison
+pca_top <- get_top_vars(pca_result$rotation)
+fa_top <- get_top_vars(fa_ortho$loadings)
+
+for(i in 1:3) {
+  cat(sprintf("Dimension %d:\n", i))
+  cat("PCA:", paste(pca_top[,i], collapse=", "), "\n")
+  cat("FA :", paste(fa_top[,i], collapse=", "), "\n\n")
+}
+
+# 2. Reliable Visualization
+library(ggplot2)
+
+# PCA Plot
+pca_df <- data.frame(
+  PC1 = pca_result$rotation[,1],
+  PC2 = pca_result$rotation[,2],
+  Variable = rownames(pca_result$rotation)
+)
+
+p1 <- ggplot(pca_df, aes(PC1, PC2, label=Variable)) +
+  geom_point(color="blue") +
+  ggrepel::geom_text_repel(max.overlaps=20) +
+  ggtitle("PCA Loadings")
+
+# FA Plot
+fa_df <- data.frame(
+  F1 = fa_ortho$loadings[,1],
+  F2 = fa_ortho$loadings[,2],
+  Variable = rownames(fa_ortho$loadings)
+)
+
+p2 <- ggplot(fa_df, aes(F1, F2, label=Variable)) +
+  geom_point(color="red") +
+  ggrepel::geom_text_repel(max.overlaps=20) +
+  ggtitle("FA Loadings")
+
+# Display plots
+gridExtra::grid.arrange(p1, p2, ncol=2)
+```
+
+```{r}
+library(ggplot2)
+library(ggrepel)  # For non-overlapping labels
+library(patchwork) # For combining plots
+```
+
+
+```{r}
+pca_plot <- ggplot(
+  data = as.data.frame(pca_result$rotation[,1:2]), 
+  aes(x = PC1, y = PC2, label = rownames(pca_result$rotation))
+) +
+  geom_segment(xend = 0, yend = 0, color = "gray", alpha = 0.7) +
+  geom_point(color = "blue", size = 3, alpha = 0.8) +
+  geom_text_repel(
+    size = 3.5,
+    max.overlaps = 20,
+    box.padding = 0.5,
+    segment.color = "grey50"
+  ) +
+  labs(
+    title = "PCA Component Loadings (Varimax Rotation)",
+    x = "Principal Component 1",
+    y = "Principal Component 2"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  xlim(-1, 1) + ylim(-1, 1)
+```
+
+
+```{r}
+fa_plot <- ggplot(
+  data = as.data.frame(fa_ortho$loadings[,1:2]), 
+  aes(x = ML1, y = ML2, label = rownames(fa_ortho$loadings))
+) +
+  geom_segment(xend = 0, yend = 0, color = "gray", alpha = 0.7) +
+  geom_point(color = "red", size = 3, alpha = 0.8) +
+  geom_text_repel(
+    size = 3.5,
+    max.overlaps = 20,
+    box.padding = 0.5,
+    segment.color = "grey50"
+  ) +
+  labs(
+    title = "FA Factor Loadings (Orthogonal Rotation)",
+    x = "Factor 1",
+    y = "Factor 2"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  xlim(-1, 1) + ylim(-1, 1)
+```
+
+
+```{r}
+combined_plot <- pca_plot + fa_plot + 
+  plot_annotation(
+    title = "Comparison of PCA Components and FA Factors",
+    subtitle = "Blue = PCA (Varimax), Red = FA (Orthogonal)",
+    theme = theme(plot.title = element_text(size = 14, face = "bold"))
+```
+
+```{r}
+combined_plot <- pca_plot + fa_plot + 
+  plot_annotation(
+    title = "Comparison of PCA Components and FA Factors",
+    subtitle = "Blue = PCA (Varimax), Red = FA (Orthogonal)",
+    theme = theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 12)
+    )
+  )  # <- This parenthesis was missing
+```
+
+```{r}
+combined_plot
+```
+```{r}
+library(ggplot2)
+library(ggrepel)
+library(patchwork)
+
+# 1. Create PCA plot
+pca_plot <- ggplot(
+  data = as.data.frame(pca_result$rotation[,1:2]), 
+  aes(x = PC1, y = PC2, label = rownames(pca_result$rotation))
+) +
+  geom_point(color = "blue", size = 3) +
+  geom_text_repel(size = 3.5, max.overlaps = 20) +
+  labs(title = "PCA Component Loadings") +
+  theme_minimal()
+
+# 2. Create FA plot
+fa_plot <- ggplot(
+  data = as.data.frame(fa_ortho$loadings[,1:2]), 
+  aes(x = ML1, y = ML2, label = rownames(fa_ortho$loadings))
+) +
+  geom_point(color = "red", size = 3) +
+  geom_text_repel(size = 3.5, max.overlaps = 20) +
+  labs(title = "FA Factor Loadings") +
+  theme_minimal()
+
+# 3. Combine plots (FIXED VERSION)
+combined_plot <- pca_plot + fa_plot + 
+  plot_annotation(
+    title = "PCA vs. FA Loadings Comparison",
+    subtitle = "Blue: PCA (Varimax) | Red: FA (Orthogonal)",
+    theme = theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5)
+    )
+  )
+
+# 4. Display the plot
+combined_plot
+```
+```{r}
+combined_plot <- pca_plot + fa_plot + 
+  plot_annotation(
+    title = "Comparison of PCA Components and FA Factors",
+    subtitle = "Blue = PCA (Varimax), Red = FA (Orthogonal)",
+    theme = theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 12)
+    )
+  )  # <- This parenthesis was missing
+```
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+library(patchwork)
+
+# 1. Create PCA plot
+pca_plot <- ggplot(
+  data = as.data.frame(pca_result$rotation[,1:2]), 
+  aes(x = PC1, y = PC2, label = rownames(pca_result$rotation))
+) +
+  geom_point(color = "blue", size = 3) +
+  geom_text_repel(size = 3.5, max.overlaps = 20) +
+  labs(title = "PCA Component Loadings") +
+  theme_minimal()
+
+# 2. Create FA plot
+fa_plot <- ggplot(
+  data = as.data.frame(fa_ortho$loadings[,1:2]), 
+  aes(x = ML1, y = ML2, label = rownames(fa_ortho$loadings))
+) +
+  geom_point(color = "red", size = 3) +
+  geom_text_repel(size = 3.5, max.overlaps = 20) +
+  labs(title = "FA Factor Loadings") +
+  theme_minimal()
+
+# 3. Combine plots (FIXED VERSION)
+combined_plot <- pca_plot + fa_plot + 
+  plot_annotation(
+    title = "PCA vs. FA Loadings Comparison",
+    subtitle = "Blue: PCA (Varimax) | Red: FA (Orthogonal)",
+    theme = theme(
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5)
+    )
+  )
+
+# 4. Display the plot
+combined_plot
+```
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+plot_path <- "C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_a3\\"
+png(paste0(plot_path, "PCA_3.png"), 
+    width = 8, height = 6, units = "in", res = 300)
+
+# PCA Plot (Components 1 vs 2)
+ggplot(as.data.frame(pca_result$rotation), 
+       ) +
+  geom_segment(xend = 0, yend = 0, color = "grey80", linewidth = 0.3) +
+  geom_point(color = "#1f78b4", size = 3) +  # Blue color
+  geom_text_repel(size = 3.5, max.overlaps = 15, 
+                  box.padding = 0.5, segment.color = "grey50") +
+  labs(title = "PCA Component Loadings (Varimax Rotation)",
+       x = "Principal Component 1", 
+       y = "Principal Component 2") +
+  theme_minimal() +
+  xlim(-1, 1) + ylim(-1, 1) +
+  theme(panel.grid.minor = element_blank())
+
+dev.off()
+```
+
+
+```{r}
+# FA Plot (Factors 1 vs 2)
+ggplot(as.data.frame(fa_ortho$loadings), 
+       aes(label = rownames(fa_ortho$loadings))) +
+  geom_segment(xend = 0, yend = 0, color = "grey80", linewidth = 0.3) +
+  geom_point(color = "#e31a1c", size = 3) +  # Red color
+  geom_text_repel(size = 3.5, max.overlaps = 15,
+                  box.padding = 0.5, segment.color = "grey50") +
+  labs(title = "FA Factor Loadings (Orthogonal Rotation)", 
+       x = "Factor 1", 
+       y = "Factor 2") +
+  theme_minimal() +
+  xlim(-1, 1) + ylim(-1, 1) +
+  theme(panel.grid.minor = element_blank())
+```
+
+```{r}
+# PCA Plot (Base R)
+plot(pca_result$rotation[,1:2], pch = 19, col = "blue",
+     main = "PCA Loadings", xlim = c(-1,1), ylim = c(-1,1))
+abline(h = 0, v = 0, col = "gray")
+text(pca_result$rotation[,1], pca_result$rotation[,2], 
+     labels = rownames(pca_result$rotation), pos = 3, cex = 0.8)
+
+# FA Plot (Base R)
+plot(fa_ortho$loadings[,1:2], pch = 19, col = "red",
+     main = "FA Loadings", xlim = c(-1,1), ylim = c(-1,1))
+abline(h = 0, v = 0, col = "gray")
+text(fa_ortho$loadings[,1], fa_ortho$loadings[,2], 
+     labels = rownames(fa_ortho$loadings), pos = 3, cex = 0.8)
+```
+
+```{r}
+library(kableExtra)
+install.packages('webshot2')
+
+comparison <- data.frame(
+  Variable = c("Internet_Connections", "PMJDY_accounts", 
+               "Total_Cropped_Area", "Literacy"),
+  PCA_Loading = c("PC2: 0.69", "PC3: 0.45", "PC1: -0.63", "PC1: 0.66"),
+  FA_Loading = c("F1: 0.72", "F2: 0.57", "F3: -0.40", "F3: 0.63"),
+  Difference = c(0.03, 0.12, 0.23, 0.03)
+)
+
+kable(comparison, "html", booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE) %>%
+  #save_kable("comparison_table.png")  # Save as PNG for Word
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
