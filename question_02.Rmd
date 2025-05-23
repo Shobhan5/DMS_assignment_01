@@ -1,0 +1,204 @@
+---
+title: "question_2"
+author: "shobhan sarkar"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r}
+data1 = read.csv("C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_assignment_02\\data\\rainfall_literacy.csv")
+# Load required packages
+library(tidyverse)
+library(car)       # For Levene's test
+library(ggpubr)    # For publication-ready plots
+library(rstatix)   # For ANOVA utilities
+
+# 1. Create a categorical variable with 3 groups (using rainfall as example)
+# ------------------------------------------------------------------------
+data1 <- data1 %>%
+  mutate(
+    rainfall_group = case_when(
+      `Annual_Normal_Rainfall_1961_2010` < quantile(`Annual_Normal_Rainfall_1961_2010`, 0.33) ~ "Low",
+      `Annual_Normal_Rainfall_1961_2010` > quantile(`Annual_Normal_Rainfall_1961_2010`, 0.66) ~ "High",
+      TRUE ~ "Medium"
+    ),
+    rainfall_group = factor(rainfall_group, levels = c("Low", "Medium", "High"))
+  )
+
+# Check group distribution
+table(data1$rainfall_group)
+```
+
+```{r}
+library(tidyverse)
+library(lmtest)       # For robust standard errors
+library(sandwich)     # For heteroskedasticity-consistent errors
+library(stargazer)    # For publication-ready tables
+library(car)   
+install.packages("ggeffects")# For VIF checks
+library(ggeffects)  
+install.packages("interactions")# For marginal effects
+library(interactions) # For interaction plots
+colnames(data1)
+# 1. Prepare variables with additional predictors
+# ----------------------------------------------
+model_data <- data1 %>%
+  mutate(
+    # Ensure factors are properly ordered
+    rainfall_group = factor(rainfall_group, levels = c("Low", "Medium", "High")),
+    # Create composite infrastructure index
+    infrastructure_index = scale(0.4*`Road_length_per_100_Sqkms_area` + 
+                               0.3*`Mobile_Phones` + 
+                               0.3*`Internet_Connections`),
+    # Standardize continuous predictors
+    across(c(`Annual_Normal_Rainfall_1961_2010`, 
+             `Households_with_individual_latrines_percent`,
+             `PMJDY_accounts_per_lakh_population`),
+           ~ scale(.), .names = "z_{.col}"),
+    # Log-transform skewed variables
+    log_income = log(`PCY_constant_18_19` + 1)
+  ) %>%
+  select(Total_literacy,
+         rainfall_group,
+         z_Annual_Normal_Rainfall_1961_2010,
+         infrastructure_index,
+         z_Households_with_individual_latrines_percent,
+         z_PMJDY_accounts_per_lakh_population,
+         log_income
+        )
+
+# 2. Fit comprehensive regression model
+# ------------------------------------
+full_model <- lm(Total_literacy ~ 
+                   rainfall_group + 
+                   z_Annual_Normal_Rainfall_1961_2010 +
+                   infrastructure_index +
+                   z_Households_with_individual_latrines_percent +
+                   z_PMJDY_accounts_per_lakh_population +
+                   log_income +
+                   # Add interaction between infrastructure and rainfall
+                   infrastructure_index:rainfall_group,
+                 data = model_data)
+
+# 3. Robust standard errors
+# -------------------------
+cov_matrix <- vcovHC(full_model, type = "HC3")
+robust_se <- sqrt(diag(cov_matrix))
+
+# 4. Generate publication-ready output
+# -----------------------------------
+stargazer(full_model,
+          type = "text",
+          se = list(robust_se),
+          title = "Comprehensive Determinants of Literacy Rates",
+          dep.var.labels = "Literacy Rate (%)",
+          covariate.labels = c("Rainfall: Medium", 
+                              "Rainfall: High",
+                              "Annual Rainfall (std)",
+                              "Infrastructure Index",
+                              "Households with Latrines (std)",
+                              "PMJDY Accounts (std)",
+                              "Log(Per Capita Income)",
+                              "Sex Ratio",
+                              "Infra Index × Rainfall Medium",
+                              "Infra Index × Rainfall High"),
+          notes = c("Standard errors are robust (HC3)",
+                   "Reference category: Low Rainfall"),
+          align = TRUE)
+
+# 5. Model diagnostics
+# --------------------
+# Multicollinearity check
+vif_results <- vif(full_model)
+print(vif_results)
+
+# Residual analysis
+par(mfrow = c(2,2))
+plot(full_model)
+
+# Normality test
+shapiro.test(resid(full_model))
+
+# 6. Advanced visualizations
+# --------------------------
+# Marginal effects of infrastructure by rainfall group
+infra_effects <- ggpredict(full_model, 
+                          terms = c("infrastructure_index [-1, 0, 1]", 
+                                   "rainfall_group"))
+plot(infra_effects) +
+  labs(title = "Marginal Effects of Infrastructure by Rainfall Group",
+       x = "Standardized Infrastructure Index",
+       y = "Predicted Literacy Rate (%)")
+
+# Interaction plot
+interact_plot(full_model, 
+              pred = infrastructure_index, 
+              modx = rainfall_group,
+              interval = TRUE,
+              int.width = 0.95) +
+  labs(x = "Infrastructure Index",
+       y = "Literacy Rate (%)",
+       color = "Rainfall Group")
+ggsave("C:\\Users\\Shobhan Sarkar\\OneDrive\\Desktop\\DMS_assignment_02\\literacy_infra.png", width = 6, height = 4, units = "in")
+
+
+```
+
+```{r}
+# PROPER MULTIVARIATE REGRESSION IMPLEMENTATION
+
+# 1. Prepare the dataset properly
+model_data <- data1 %>%
+  mutate(
+    rainfall_group = factor(rainfall_group, levels = c("Low", "Medium", "High")),
+    infrastructure_index = scale(0.4*`Road_length_per_100_Sqkms_area` + 
+                               0.3*`Mobile_Phones` + 
+                               0.3*`Internet_Connections`)
+  )
+
+# 2. Create matrix of dependent variables (standardized)
+dvs <- model_data %>%
+  select(
+    Total_literacy,
+    `Households_with_individual_latrines_percent`,
+    `PCY_constant_18_19`
+  ) %>%
+  scale() %>%
+  as.matrix()
+
+# 3. Fit multivariate model CORRECTLY
+mv_model <- lm(dvs ~ 
+               rainfall_group + 
+               infrastructure_index + 
+               `Mobile_Phones` + 
+               `Road_length_per_100_Sqkms_area`,
+             data = model_data)
+
+# 4. MANOVA test
+manova_results <- Manova(mv_model, test.statistic = "Pillai")
+summary(manova_results)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
